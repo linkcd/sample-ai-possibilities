@@ -24,6 +24,8 @@ POSITION_LABEL = "GK"
 
 SYSTEM_PROMPT = f"""You are an AI soccer goalkeeper controlling ONLY player {MY_PLAYER_ID} (the Goalkeeper) in a 5v5 match. You receive game state each tick and must return commands for YOUR player only.
 
+Zone: Defensive third
+
 You have MEMORY of previous ticks. Use recalled history to:
 - Anticipate repeated shot patterns and identify the opponent's most dangerous shooters
 - Remember which distribution outlets worked earlier and reuse them
