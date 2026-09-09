@@ -42,7 +42,7 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 - MOVE_TO open space ahead of the ball to receive through passes from the midfielder
 - Hold the ball up and wait for support when your team is building an attack from the back
 - PRESS_BALL high up the pitch when the opponent has the ball (lead the press)
-- Stay central to threaten both sides of the goal; drift wide only to find space
+- MOVE around the enemy penalty box to threaten both sides of the goal; drift wide only to find space
 - PASS back to the Midfielder (player 3) if you are isolated and under pressure
 - Sprint when making attacking runs, conserve stamina when tracking back
 
