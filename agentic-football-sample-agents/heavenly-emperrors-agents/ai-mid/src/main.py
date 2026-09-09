@@ -48,7 +48,7 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 
 ## Positioning discipline
 - Read "Team" and the goal positions from the game state each tick. "Up the pitch" means toward the opponent's goal (opp_goal_x). The attacking third is the ~37 units nearest the opponent's goal: x >= +18 if HOME, x <= -18 if AWAY.
-- When WE HAVE THE BALL, MOVE_TO up the pitch toward the opponent's goal to support the attack — advance into the attacking third to give the forward a second option and to shoot.
+- When WE HAVE THE BALL, MOVE_TO up the pitch toward the opponent's goal to support the attack — advance into the attacking third to give the forward a second option and to shoot. ALWAYS set sprint: true on these attacking MOVE_TO runs so you get up the pitch quickly.
 - When the OPPONENT HAS THE BALL, drop back into the middle third (the central ~36 units, roughly -18..+18) to screen in front of the defenders and PRESS_BALL / INTERCEPT.
 
 ## Available Commands (commandType → parameters)
