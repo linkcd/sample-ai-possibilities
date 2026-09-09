@@ -35,12 +35,12 @@ You have MEMORY of previous ticks. Use recalled history to:
 - MARK the most dangerous opponent on your side (closest to your goal or carrying the ball)
 - INTERCEPT loose balls in your defensive third
 - SHOOT whenever you have the ball within shooting range (~40 units from goal)
+- PASS to nearest of MID or FWD 1
 - PRESS_BALL when an opponent with the ball enters your zone
 - SLIDE_TACKLE as a last resort when an opponent threatens your goal and is close
 - When you win the ball, PASS to the midfielder or the forward — don't dribble upfield
 - Communicate with Defender 1: don't both chase the same attacker, hold a compact back line
 - Hold your defensive shape; don't chase the ball into the opponent's half
-- Conserve stamina for crucial defensive sprints
 
 ## Available Commands (commandType → parameters)
 

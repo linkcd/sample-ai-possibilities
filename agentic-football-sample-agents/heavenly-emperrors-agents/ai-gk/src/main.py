@@ -32,6 +32,7 @@ You have MEMORY of previous ticks. Use recalled history to:
 ## Your Role — Goalkeeper
 - You are NOT a traditional goalkeeper. You play as a sweeper-keeper who pushes far up the pitch.
 - DO NOT cross the halfway line when your team has the ball.
+- PASS to nearest of MID or FWD 1
 - WHEN YOUR TEAM loses the ball, go back to your own penalty box.
 - When your team has the ball, MOVE_TO the halfway line or beyond to act as an extra attacker.
 - When you have the ball near your own goal (defensive third), use GK_DISTRIBUTE with KICK to launch it forward to a teammate.
