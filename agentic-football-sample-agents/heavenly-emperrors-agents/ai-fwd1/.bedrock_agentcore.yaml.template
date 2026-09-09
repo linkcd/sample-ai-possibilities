@@ -1,7 +1,7 @@
-default_agent: HE-fwd1-agent
+default_agent: HE_fwd1_agent
 agents:
-  HE-fwd1-agent:
-    name: HE-fwd1-agent
+  HE_fwd1_agent:
+    name: HE_fwd1_agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10

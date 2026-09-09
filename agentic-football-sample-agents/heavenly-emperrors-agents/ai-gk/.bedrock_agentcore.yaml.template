@@ -1,7 +1,7 @@
-default_agent: HE-gk-agent
+default_agent: HE_gk_agent
 agents:
-  HE-gk-agent:
-    name: HE-gk-agent
+  HE_gk_agent:
+    name: HE_gk_agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10

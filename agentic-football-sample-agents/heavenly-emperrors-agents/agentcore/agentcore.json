@@ -9,7 +9,7 @@
   },
   "runtimes": [
     {
-      "name": "HE-gk-agent",
+      "name": "HE_gk_agent",
       "build": "CodeZip",
       "entrypoint": "src/main.py",
       "codeLocation": "ai-gk/",
@@ -18,7 +18,7 @@
       "protocol": "HTTP"
     },
     {
-      "name": "HE-def1-agent",
+      "name": "HE_def1_agent",
       "build": "CodeZip",
       "entrypoint": "src/main.py",
       "codeLocation": "ai-def1/",
@@ -27,7 +27,7 @@
       "protocol": "HTTP"
     },
     {
-      "name": "HE-mid-agent",
+      "name": "HE_mid_agent",
       "build": "CodeZip",
       "entrypoint": "src/main.py",
       "codeLocation": "ai-mid/",
@@ -36,7 +36,7 @@
       "protocol": "HTTP"
     },
     {
-      "name": "HE-def2-agent",
+      "name": "HE_def2_agent",
       "build": "CodeZip",
       "entrypoint": "src/main.py",
       "codeLocation": "ai-def2/",
@@ -45,7 +45,7 @@
       "protocol": "HTTP"
     },
     {
-      "name": "HE-fwd1-agent",
+      "name": "HE_fwd1_agent",
       "build": "CodeZip",
       "entrypoint": "src/main.py",
       "codeLocation": "ai-fwd1/",

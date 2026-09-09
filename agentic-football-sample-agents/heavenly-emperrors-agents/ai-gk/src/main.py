@@ -1,6 +1,8 @@
 """
-AI Soccer Goalkeeper Agent (Memory) — Controls ONLY player 0 (Goalkeeper).
-Uses Strands SDK + Amazon Nova Micro + AgentCore Memory for cross-tick recall.
+AI Soccer Goalkeeper Agent (Memory, Solid Defensive) — Controls ONLY player 0 (Goalkeeper).
+Stays deep, holds the line between ball and goal, and distributes to whichever of the
+midfielder (3) or forward (4) is furthest up the pitch.
+Uses Strands SDK + Amazon Nova + AgentCore Memory for cross-tick recall.
 """
 
 import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib")); sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
@@ -22,45 +24,39 @@ POSITION_LABEL = "GK"
 
 # --- System Prompt ---
 
-SYSTEM_PROMPT = f"""You are an EXTREMELY DEFENSIVE AI soccer goalkeeper controlling ONLY player {MY_PLAYER_ID} (the Goalkeeper) in a 5v5 match. You receive game state each tick and must return commands for YOUR player only.
+SYSTEM_PROMPT = f"""You are the GOALKEEPER on a 5v5 football team, Player {MY_PLAYER_ID}. You may be on the HOME or AWAY team — read "Team" and the goal positions from the game state each tick.
 
-You have MEMORY of previous ticks. Use recalled history to:
-- Anticipate repeated shot patterns and identify the opponent's most dangerous shooters
-- Remember which distribution outlets worked earlier and reuse them
-- Adjust your starting position based on opponent tendencies seen earlier in the match
+Field sides (from the state): "Your goal" is at one end (my_goal_x) and the "Opponent goal" at the other (opp_goal_x). If HOME your goal is at x=-55 and you attack toward +x; if AWAY your goal is at x=+55 and you attack toward -x. "Up the pitch" always means toward the opponent's goal.
 
-## Your Role — Deep Defensive Goalkeeper
-- NEVER leave your goal line. Stay as deep as possible at all times.
-- Position yourself exactly between the ball and the center of your goal — always.
-- Use GK_DISTRIBUTE with THROW to the nearest defender — always play it safe.
-- INTERCEPT only when the ball is within 5 units of you — do not come off your line.
-- NEVER sprint. Conserve all stamina for saves.
-- Your only job is to prevent goals. Nothing else matters.
-- PASS to nearest of MID or FWD 1.
-- When you have the ball near your own goal (defensive third), use GK_DISTRIBUTE with KICK to launch it forward to a teammate.
+Your role: defend your goal — stay deep near your own goal line and keep yourself on the line between the ball and the centre of your goal.
 
-## Priority
-1. If you have the ball → GK_DISTRIBUTE (THROW to nearest teammate)
-2. If ball is loose near your box → INTERCEPT
-3. Otherwise → MOVE_TO to stay between ball and goal center
+You receive the game state each tick and return exactly ONE command for Player {MY_PLAYER_ID} only.
+
+Decision priorities (in order):
+1. If you have the ball → GK_DISTRIBUTE to whichever of the midfielder (3) or forward (4) is furthest up the pitch (closest to the opponent goal). Use KICK if that teammate is past the halfway line, otherwise THROW.
+2. If the ball is loose within ~5 units of you → INTERCEPT (aggressive: false).
+3. Otherwise → MOVE_TO onto the line between the ball and the centre of your own goal (x very close to your own goal line, y tracking the ball), sprint: false.
+
+Memory: use recalled ticks to remember the opponent's most dangerous shooters and which outlet (3 or 4) has been open, and adjust your side-to-side positioning.
+
+You must NEVER:
+- Advance far from your own goal or push up the pitch toward the opponent's goal.
+- SHOOT, PASS as an outfield player, or join the attack.
+- Sprint except for a direct, close-range save or interception.
 
 ## Available Commands (commandType → parameters)
 
 ONE-SHOT:
-- MOVE_TO: target_x (float), target_y (float), sprint (bool)
-- PASS: target_player_id (int), type ("GROUND"|"AERIAL"|"THROUGH") — only if you have ball
-- SHOOT: aim_location ("TL"|"TR"|"BL"|"BR"|"CENTER"), power (0.0-1.0) — only if you have ball
-- SLIDE_TACKLE: target_player_id (int), sprint (bool), distance (float) — risky aggressive tackle
-- GK_DISTRIBUTE: target_player_id (int), method ("THROW"|"KICK") — your primary distribution tool
+- MOVE_TO: target_x (float), target_y (float), sprint (bool) — stay on/near your goal line only
+- GK_DISTRIBUTE: target_player_id (int), method ("THROW"|"KICK") — your primary tool when you have the ball
+- SLIDE_TACKLE: target_player_id (int), sprint (bool), distance (float) — last resort only
 
 MAINTAINED:
-- PRESS_BALL: intensity (0.0-1.0) — only if ball is very close to goal
-- MARK: target_player_id (int), tightness ("LOOSE"|"TIGHT") — man-mark opponent
-- INTERCEPT: aggressive (bool) — predict and intercept the ball
+- INTERCEPT: aggressive (bool) — set false; only intercept balls very close to you
 - FOLLOW_PLAYER: target_player_id (int), target_team ("HOME"|"AWAY"), distance (float)
 
 TACTICAL:
-- SET_STANCE: stance (0=Balanced, 1=Attack, 2=Defend)
+- SET_STANCE: stance (0=Balanced, 1=Attack, 2=Defend) — you play stance 2 (Defend)
 - CLEAR_OVERRIDE: {{}} — return to default AI
 - RESET: {{}} — clear all overrides for team
 
@@ -71,13 +67,65 @@ TACTICAL:
 
 ## Response
 Return ONLY a JSON array with exactly ONE command for player {MY_PLAYER_ID}.
-Example: [{{"commandType":"GK_DISTRIBUTE","playerId":{MY_PLAYER_ID},"parameters":{{"target_player_id":1,"method":"THROW"}},"duration":0}}]
+Example (distribute to the forward when they are furthest up): [{{"commandType":"GK_DISTRIBUTE","playerId":{MY_PLAYER_ID},"parameters":{{"target_player_id":4,"method":"KICK"}},"duration":0}}]
+Example (hold the line between ball and goal — use a target_x very close to YOUR OWN goal line, i.e. near my_goal_x): [{{"commandType":"MOVE_TO","playerId":{MY_PLAYER_ID},"parameters":{{"target_x":-50.0,"target_y":3.0,"sprint":false}},"duration":0}}]
 Return ONLY the JSON array, no text before or after."""
 
 
 # --- Fallback ---
+#
+# GK_CONFIG already gives the solid-defensive positioning we want on the rule-based
+# fallback path: it keeps the keeper deep (default_x_factor 0.9 toward our own goal),
+# tracks the ball laterally, and holds stance 2 (Defend). We only override the on-ball
+# behaviour so distribution goes to whichever of the midfielder (3) or forward (4) is
+# FURTHEST up the pitch — matching the system prompt — instead of the shared lib's
+# "nearest teammate" default.
 
-fallback_commands = build_fallback(GK_CONFIG)
+from state import get_goal_positions, _is_my_team, _player_idx
+
+_base_fallback = build_fallback(GK_CONFIG)
+
+# Distribution outlets, most preferred first: midfielder (3), then forward (4).
+_DISTRIBUTION_OUTLETS = (3, 4)
+
+
+def fallback_commands(game_state: dict, team_id: int, my_player_id: int) -> list[dict]:
+    ball = game_state.get("ball", {})
+    players = game_state.get("players", [])
+
+    # Determine whether THIS keeper is the ball holder.
+    possession_agent = ball.get("possessionAgentId")
+    keeper_has_ball = possession_agent == f"agentId_{my_player_id}"
+
+    if keeper_has_ball:
+        my_goal_x, opp_goal_x = get_goal_positions(team_id)
+        # "Furthest up the pitch" = closest to the opponent goal x.
+        candidates = [
+            p for p in players
+            if _is_my_team(p, team_id) and _player_idx(p) in _DISTRIBUTION_OUTLETS
+        ]
+        if candidates:
+            target = min(
+                candidates,
+                key=lambda p: abs(p.get("position", {}).get("x", 0) - opp_goal_x),
+            )
+            target_id = _player_idx(target)
+            target_x = target.get("position", {}).get("x", 0)
+            # KICK long if the outlet is past the halfway line, else a safer THROW.
+            past_halfway = abs(target_x) < abs(opp_goal_x) and (
+                (opp_goal_x > 0 and target_x > 0) or (opp_goal_x < 0 and target_x < 0)
+            )
+            method = "KICK" if past_halfway else "THROW"
+            return [{
+                "commandType": "GK_DISTRIBUTE",
+                "playerId": my_player_id,
+                "teamId": team_id,
+                "parameters": {"target_player_id": target_id, "method": method},
+                "duration": 0,
+            }]
+
+    # Not on the ball (or no outlet found): use the deep-defensive base behaviour.
+    return _base_fallback(game_state, team_id, my_player_id)
 
 
 # --- Wire it up ---
