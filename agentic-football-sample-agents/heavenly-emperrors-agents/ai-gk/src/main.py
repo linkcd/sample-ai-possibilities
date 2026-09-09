@@ -1,17 +1,18 @@
 """
-AI Soccer Goalkeeper Agent (Memory) — Controls ONLY player 0 (Goalkeeper).
-Uses Strands SDK + Amazon Nova Micro + AgentCore Memory for cross-tick recall.
+AI Soccer Goalkeeper Agent (Memory + Gateway) — Controls ONLY player 0 (Goalkeeper).
+Uses Strands SDK + Amazon Nova Pro + AgentCore Memory for cross-tick recall,
+plus AgentCore Gateway MCP tactical tools.
 """
 
 import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib")); sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 from _bootstrap import setup_lib_path; setup_lib_path(__file__)
 
-# memory_agent_base lives one level above src/
+# combined_agent_base lives one level above src/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from memory_agent_base import create_memory_agent
-from agent_base import create_invoke_handler
+from combined_agent_base import create_combined_agent
+from combined_invoke_handler import create_combined_invoke_handler
 from fallback import build_fallback, GK_CONFIG
 
 app = BedrockAgentCoreApp()
@@ -28,6 +29,10 @@ You have MEMORY of previous ticks. Use recalled history to:
 - Anticipate repeated shot patterns and identify the opponent's most dangerous shooters
 - Remember which distribution outlets worked earlier and reuse them
 - Adjust your starting position based on opponent tendencies seen earlier in the match
+
+You have access to tactical analysis TOOLS via MCP. Use them to make better decisions:
+- Use `get_defensive_assignment` to identify the most dangerous opponent
+- Use `calculate_pass_options` after saves to find the best distribution target
 
 ## Your Role — Goalkeeper
 - You are NOT a traditional goalkeeper. You play as a sweeper-keeper who pushes far up the pitch.
@@ -83,9 +88,9 @@ fallback_commands = build_fallback(GK_CONFIG)
 
 # --- Wire it up ---
 
-agent = create_memory_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-pro-v1:0")
-create_invoke_handler(
-    app, agent, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
+agent, mcp_client = create_combined_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-pro-v1:0")
+create_combined_invoke_handler(
+    app, agent, mcp_client, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
     fallback_cfg=GK_CONFIG,
 )
 

@@ -1,4 +1,4 @@
-# Heavenly Emperrors Agents (Strands + Memory) — Per-Position Soccer Agents
+# Heavenly Emperrors Agents (Strands + Memory + Gateway) — Per-Position Soccer Agents
 
 Five AI agents that each control a single player in a 5v5 soccer match, built with
 [Strands Agents SDK](https://github.com/strands-agents/sdk-python) and deployed to
@@ -8,10 +8,25 @@ This team lines up in a defensive **1 forward, 1 midfielder, 2 defenders, 1 goal
 formation — a solid back two shielding the keeper, a single midfield link, and a lone
 striker leading the line.
 
-Every agent is **memory-aware**: each is created with `create_memory_agent()`, which
-backs the Strands `Agent` with an [AgentCore Memory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html)
-short-term memory (STM) session so it recalls earlier ticks within a match and adapts to
-what it has seen (opponent tendencies, which passes/shots have worked, marking duties).
+Every agent combines two capabilities on the same Strands `Agent`, wired up by
+`create_combined_agent()`:
+
+- **Memory** — backed by an [AgentCore Memory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html)
+  short-term memory (STM) session, so each agent recalls earlier ticks within a match and
+  adapts to what it has seen (opponent tendencies, which passes/shots have worked, marking
+  duties).
+- **Gateway tactical tools** — MCP tools served via an
+  [AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html)
+  (`find_open_space`, `evaluate_shot`, `calculate_pass_options`, `get_defensive_assignment`)
+  that let the agent call out to Lambda-computed tactical analysis instead of reasoning
+  about raw coordinates itself.
+
+Both are independent `Agent` constructor arguments (`session_manager`/`conversation_manager`
+vs. `tools`), so they compose without conflicting. Combining them naively would compound
+the two together's worst case — unbounded conversation history *plus* tool-schema overhead
+on every call — so `create_combined_agent()` also applies a bounded
+`SlidingWindowConversationManager` (`window_size=6`, `per_turn=True`) to keep the per-tick
+prompt flat across a match. See `combined_agent_base.py` for details.
 
 ## Architecture
 
@@ -19,16 +34,19 @@ what it has seen (opponent tendencies, which passes/shots have worked, marking d
 agents/
 ├── lib/            # Shared library (single source of truth, used by all teams)
 └── heavenly-emperrors-agents/
-    ├── ai-gk/                  # Goalkeeper  (player 0) — Nova Micro
-    ├── ai-def1/                # Defender 1  (player 1) — Nova Lite
-    ├── ai-def2/                # Defender 2  (player 2) — Nova Lite
-    ├── ai-mid/                 # Midfielder  (player 3) — Nova Pro
-    ├── ai-fwd1/                # Forward     (player 4) — Nova Lite
-    ├── memory_agent_base.py     # create_memory_agent() — legacy deploy-all.sh flow (MEMORY_ID)
-    ├── memory_agent_base_cdk.py # create_memory_agent() — CDK deploy_all.py flow (MEMORY_TEAM_MEMORY_ID)
-    ├── create_memory.py         # One-time STM resource creator (legacy flow only)
-    ├── deploy_all.py            # Build + deploy script (CDK flow, creates memory)
-    ├── destroy_all.py           # Tear down agent runtimes
+    ├── ai-gk/                    # Goalkeeper  (player 0) — Nova Pro
+    ├── ai-def1/                  # Defender 1  (player 1) — Nova Lite
+    ├── ai-def2/                  # Defender 2  (player 2) — Nova Lite
+    ├── ai-mid/                   # Midfielder  (player 3) — Nova Pro
+    ├── ai-fwd1/                  # Forward     (player 4) — Nova Lite
+    ├── gateway_tools/            # Lambda implementations of the 4 tactical MCP tools
+    ├── combined_agent_base.py     # create_combined_agent() — CDK deploy_all.py flow
+    ├── combined_invoke_handler.py # create_combined_invoke_handler() — wraps calls in `with mcp_client:`
+    ├── memory_agent_base.py       # create_memory_agent() — legacy deploy-all.sh flow (memory-only, MEMORY_ID)
+    ├── memory_agent_base_cdk.py   # create_memory_agent() — CDK flow (memory-only, MEMORY_TEAM_MEMORY_ID)
+    ├── create_memory.py           # One-time STM resource creator (legacy flow only)
+    ├── deploy_all.py              # Build + deploy script (CDK flow, creates memory + gateway)
+    ├── destroy_all.py             # Tear down agent runtimes
     └── README.md
 ```
 
@@ -46,28 +64,36 @@ ai-<position>/
 
 Every agent's `main.py` follows the same pattern:
 
-1. **System prompt** — tells the LLM what position it plays, what commands are available, and how to use its memory of earlier ticks
+1. **System prompt** — tells the LLM what position it plays, what commands are available,
+   how to use its memory of earlier ticks, and which tactical tools it has access to
 2. **Fallback config** — rule-based behavior when the LLM fails to respond properly
-3. **Wire it up** — `create_memory_agent()` (from the team-level `memory_agent_base`) + `create_invoke_handler()` (from the shared lib)
+3. **Wire it up** — `create_combined_agent()` (memory + gateway tools, team-level) +
+   `create_combined_invoke_handler()` (wraps the call in `with mcp_client:` so Gateway
+   tools stay reachable)
 
 The shared `lib/` provides:
-- `agent_base.py` — invoke handler with 3-layer error handling (LLM → fallback → last-resort), plus the non-memory `create_agent()` factory
+- `agent_base.py` — the non-memory, non-gateway `create_agent()` factory + `create_invoke_handler()`, used by other team variants
 - `fallback.py` — configurable rule-based fallback per position
 - `parsing.py` — extracts JSON commands from LLM responses
 - `state.py` — summarizes game state into text for the LLM
 - `_bootstrap.py` — resolves `lib/` path for both local dev and deployed environments
-- `test_helpers.py` — mock AgentCore (`mock_agentcore_memory`) + sample game state for local tests
+- `test_helpers.py` — mock AgentCore (`mock_agentcore_memory`, `mock_agentcore_gateway`) + sample game state for local tests
 
-Memory support lives at the team level (not in the shared lib), in two sibling modules
-with the same `create_memory_agent(system_prompt, player_id, position_label, model_id)` API:
-- `memory_agent_base_cdk.py` — used by the CDK flow (`deploy_all.py`). The `team_memory`
-  resource is declared in `agentcore/agentcore.json`, created by the CDK stack, and its ID
-  is injected into every runtime as `MEMORY_TEAM_MEMORY_ID`.
-- `memory_agent_base.py` — used by the legacy flow (`deploy-all.sh`), which reads a
-  `MEMORY_ID` env var created via `create_memory.py`.
+Memory+Gateway support lives at the team level (not in the shared lib), in
+`combined_agent_base.py` — a single `create_combined_agent(system_prompt, player_id,
+position_label, model_id)` factory used by the CDK flow (`deploy_all.py`):
+- The `team_memory` resource is declared in `agentcore/agentcore.json`, created by the CDK
+  stack, and its ID is injected into every runtime as `MEMORY_TEAM_MEMORY_ID`.
+- The `tactical-tools` Gateway (and its 4 Lambda targets, built from `gateway_tools/`) is
+  also declared in `agentcore/agentcore.json`, created by the CDK stack, and its endpoint
+  is injected as `AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL`.
 
-`deploy_all.py` stages `memory_agent_base_cdk.py` into each agent directory as
-`memory_agent_base.py` at deploy time, so `src/main.py` imports it unchanged.
+`deploy_all.py` stages `combined_agent_base.py` and `combined_invoke_handler.py` into each
+agent directory at deploy time, so `src/main.py` imports them unchanged.
+
+The pre-existing `memory_agent_base.py` / `memory_agent_base_cdk.py` (memory-only, no
+Gateway tools) remain in the repo for reference but are no longer wired into any agent's
+`main.py`.
 
 
 ## Prerequisites
@@ -86,9 +112,10 @@ Works on macOS, Linux, and Windows (PowerShell) — no WSL required.
 
 ### 1. Run local tests (no AWS needed)
 
-Local tests exercise state summary, parsing, and fallback with a mocked AgentCore Memory
-(`mock_agentcore_memory`). No LLM or Memory calls are made; deploy to AgentCore to test
-the real memory integration.
+Local tests exercise state summary, parsing, and fallback with mocked AgentCore Memory
+and Gateway clients (`mock_agentcore_memory`, `mock_agentcore_gateway`). No LLM, Memory,
+or Gateway calls are made; deploy to AgentCore to test the real memory + tactical tools
+integration.
 
 ```bash
 # Test a single agent
@@ -101,7 +128,7 @@ python3 ai-gk/test_local.py
 ### 2. Deploy to AWS
 
 ```bash
-# Deploy all 5 agents (and the team_memory resource) via CDK
+# Deploy all 5 agents (and the team_memory resource + tactical-tools gateway) via CDK
 AWS_DEFAULT_REGION=us-east-1 python deploy_all.py
 ```
 
@@ -113,17 +140,20 @@ python deploy_all.py
 
 The deploy script:
 1. Runs `cdk bootstrap` (idempotent — safe to run every time)
-2. Temporarily copies the shared `lib/` directory and stages `memory_agent_base_cdk.py`
-   as `memory_agent_base.py` into each agent's directory
-3. Runs `agentcore deploy` once, which creates the `team_memory` STM resource, grants each
-   runtime access to it, and injects its ID as `MEMORY_TEAM_MEMORY_ID`
+2. Temporarily copies the shared `lib/` directory and stages `combined_agent_base.py` +
+   `combined_invoke_handler.py` into each agent's directory
+3. Runs `agentcore deploy` once, which creates the `team_memory` STM resource and the
+   `tactical-tools` Gateway (with its 4 Lambda targets built from `gateway_tools/`),
+   grants each runtime access to both, and injects `MEMORY_TEAM_MEMORY_ID` and
+   `AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL`
 4. Removes the injected files on success, failure, or Ctrl+C
 
-The shared `lib/` and memory base module remain single sources of truth — the copies are
+The shared `lib/` and combined base module remain single sources of truth — the copies are
 temporary and never committed.
 
-To tear the agent runtimes back down, run `python destroy_all.py` (the memory resource is
-left in place; remove its entry from `agentcore/agentcore.json` and redeploy to delete it).
+To tear the agent runtimes back down, run `python destroy_all.py` (the memory resource and
+gateway are left in place; remove their entries from `agentcore/agentcore.json` and
+redeploy to delete them).
 
 
 ## Creating Your Own Agent
@@ -144,20 +174,28 @@ MY_PLAYER_ID = 0
 POSITION_LABEL = "GK"
 
 # 2. Write your system prompt — tell the LLM its role, available commands,
-#    and how to use its memory of earlier ticks
-SYSTEM_PROMPT = f"""You are an AI soccer goalkeeper... You have MEMORY of previous ticks..."""
+#    how to use its memory of earlier ticks, and which tactical tools it has
+SYSTEM_PROMPT = f"""You are an AI soccer goalkeeper... You have MEMORY of previous ticks...
+You have access to tactical analysis TOOLS via MCP..."""
 
 # 3. Pick a fallback config (or create your own in lib/fallback.py)
 fallback_commands = build_fallback(GK_CONFIG)
 
-# 4. Choose your model — create_memory_agent backs the agent with AgentCore Memory (STM)
-agent = create_memory_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-micro-v1:0")
+# 4. Choose your model — create_combined_agent backs the agent with AgentCore Memory
+#    (STM) AND Gateway tactical tools (find_open_space, evaluate_shot,
+#    calculate_pass_options, get_defensive_assignment)
+agent, mcp_client = create_combined_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-micro-v1:0")
+create_combined_invoke_handler(
+    app, agent, mcp_client, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
+    fallback_cfg=GK_CONFIG,
+)
 ```
 
 ### `agentcore/agentcore.json`
 
-Add a new runtime entry for your agent (the `team_memory` resource is already declared
-under `memories`, so the CDK stack injects `MEMORY_TEAM_MEMORY_ID` into it automatically):
+Add a new runtime entry for your agent (the `team_memory` resource and `tactical-tools`
+gateway are already declared, so the CDK stack injects `MEMORY_TEAM_MEMORY_ID` and
+`AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL` into it automatically):
 
 ```json
 {
@@ -184,11 +222,31 @@ ALL_AGENTS = ["ai-gk", "ai-def1", "ai-mid", "ai-def2", "ai-fwd1", "ai-myagent"]
 
 | Player ID | Position    | Directory | Default Model |
 |-----------|-------------|-----------|---------------|
-| 0         | Goalkeeper  | ai-gk     | Nova Micro    |
+| 0         | Goalkeeper  | ai-gk     | Nova Pro      |
 | 1         | Defender 1  | ai-def1   | Nova Lite     |
 | 2         | Defender 2  | ai-def2   | Nova Lite     |
 | 3         | Midfielder  | ai-mid    | Nova Pro      |
 | 4         | Forward     | ai-fwd1   | Nova Lite     |
+
+## Tactical Tools (AgentCore Gateway MCP)
+
+Every agent has access to the same four MCP tools, served via the `tactical-tools`
+AgentCore Gateway and implemented as Lambda functions in `gateway_tools/`. Each system
+prompt tells its agent which of these are most relevant to its position, but any agent
+may call any tool:
+
+| Tool | What it does |
+|---|---|
+| `calculate_pass_options` | Calculates pass success probability for each teammate based on interception risk |
+| `evaluate_shot` | Evaluates shot success probability and recommends an aim point |
+| `find_open_space` | Grid-based open space finder by zone (`attack`, `midfield`, `defense`) |
+| `get_defensive_assignment` | Ranks opponent threats for defensive marking priority |
+
+Tool calls happen inside the model's own reasoning loop — the agent decides when to call
+a tool based on its system prompt, then incorporates the tool's result into its next
+response. `combined_invoke_handler.py` wraps each tick's `agent()` call in
+`with mcp_client:` so the Gateway connection is live for the whole invocation, including
+any mid-turn tool calls.
 
 ## Available Commands
 

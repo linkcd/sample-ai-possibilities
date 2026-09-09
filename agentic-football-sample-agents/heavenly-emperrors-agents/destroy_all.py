@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Destroy all 5 AI Team (Memory) agent runtimes from Bedrock AgentCore.
+Destroy all 5 AI Team (Memory + Gateway) agent runtimes from Bedrock AgentCore.
 
 Usage:
     python destroy_all.py              # destroy all 5 agents
@@ -8,8 +8,9 @@ Usage:
 
 Works on macOS, Linux, and Windows (PowerShell) without WSL.
 
-Note: This does NOT delete the memory resource. It is declared in
-agentcore/agentcore.json ("team_memory"); to remove it, delete that entry
+Note: This does NOT delete the memory resource or the tactical-tools
+gateway/Lambdas. They are declared in agentcore/agentcore.json
+("team_memory", "tactical-tools"); to remove them, delete those entries
 and run `agentcore deploy --yes` again, or delete the CloudFormation stack
 to tear down everything at once.
 """
@@ -50,7 +51,7 @@ def run(cmd, **kwargs):
 
 
 print("==========================================")
-print("  AI Team (Memory) — Destroy Agents")
+print("  AI Team (Memory + Gateway) — Destroy Agents")
 print("==========================================\n")
 
 # Remove each agent from the project config
@@ -77,6 +78,6 @@ print("  Summary")
 print("==========================================")
 print(f"  Removed: {', '.join(agents)}")
 print()
-print("Note: The memory resource (team_memory) was NOT deleted. Remove its")
-print("entry from agentcore/agentcore.json and redeploy, or delete the")
-print("CloudFormation stack, to tear it down.")
+print("Note: The memory resource (team_memory) and the tactical-tools gateway")
+print("were NOT deleted. Remove their entries from agentcore/agentcore.json")
+print("and redeploy, or delete the CloudFormation stack, to tear them down.")
