@@ -7,6 +7,7 @@ MCPClient context manager so Gateway tools are available during invocation
 """
 
 import json
+from contextlib import nullcontext
 from typing import Callable
 from strands import Agent
 from strands.tools.mcp.mcp_client import MCPClient
@@ -19,7 +20,7 @@ from fallback import FallbackConfig, build_last_resort
 def create_combined_invoke_handler(
     app,
     agent: Agent,
-    mcp_client: MCPClient,
+    mcp_client: "MCPClient | None",
     my_player_id: int,
     position_label: str,
     fallback_fn: Callable[[dict, int, int], list[dict]],
@@ -54,8 +55,9 @@ def create_combined_invoke_handler(
             log.info(f"{position_label} combined agent invoked for team {team_id}, controlling player {effective_pid}")
 
             # Use MCP client context so Gateway tools are available while the
-            # agent (and its Memory-backed session manager) runs.
-            with mcp_client:
+            # agent (and its Memory-backed session manager) runs. When there is
+            # no gateway (mcp_client is None), run memory-only with no context.
+            with (mcp_client if mcp_client is not None else nullcontext()):
                 response = agent(state_summary)
             response_text = str(response)
 

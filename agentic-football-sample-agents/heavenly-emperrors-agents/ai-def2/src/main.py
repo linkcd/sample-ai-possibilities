@@ -42,7 +42,7 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 - MARK the most dangerous central attacker (closest to your goal or carrying the ball)
 - INTERCEPT loose balls in your defensive third
 - Normally do NOT shoot — pass instead. Only SHOOT if you have carried the ball onto one of your overlapping runs and are actually inside the attacking third (x >= +18 if HOME, x <= -18 if AWAY) with a clear sight of goal.
-- When you win the ball, PASS to whichever of MID (3) or FWD (4) is closest to the opponent's goal (opp_goal_x) — i.e. furthest into the attacking third (x >= +18 if HOME, x <= -18 if AWAY)
+- When you win the ball, PASS to the Midfielder (player 3). The midfielder is your primary outlet — only pass elsewhere (e.g. to the Forward, player 4) if player 3 is clearly unavailable (tightly marked with no lane).
 - PRESS EARLY AND HIGH: the moment an opponent carrying the ball enters OUR HALF (their x on our side of the halfway line — i.e. x < 0 if HOME, x > 0 if AWAY), step up and close them down with PRESS_BALL at high intensity (0.8+). Press them up to the halfway line — do not wait for them to reach our defensive third.
 - SLIDE_TACKLE as a last resort when an opponent threatens your goal and is close
 - Communicate with Defender 1: don't both chase the same attacker, hold a compact back line

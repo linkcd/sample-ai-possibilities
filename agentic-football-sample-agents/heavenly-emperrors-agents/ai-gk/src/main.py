@@ -38,7 +38,7 @@ Your role: defend your goal — stay deep near your own goal line and keep yours
 You receive the game state each tick and return exactly ONE command for Player {MY_PLAYER_ID} only.
 
 Decision priorities (in order):
-1. If you have the ball → GK_DISTRIBUTE to whichever of the midfielder (3) or forward (4) is furthest up the pitch (closest to the opponent goal). Use KICK if that teammate is past the halfway line, otherwise THROW.
+1. If you have the ball → GK_DISTRIBUTE to the Midfielder (player 3). Use KICK if the midfielder is past the halfway line, otherwise THROW. Only distribute to another teammate if player 3 is clearly unavailable (tightly marked with no lane).
 2. If the ball is loose within ~5 units of you → INTERCEPT (aggressive: false).
 3. Otherwise → MOVE_TO onto the line between the ball and the centre of your own goal (x very close to your own goal line, y tracking the ball), sprint: false.
 

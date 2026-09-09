@@ -85,7 +85,7 @@ def create_combined_agent(
     player_id: int,
     position_label: str,
     model_id: str = "us.amazon.nova-micro-v1:0",
-) -> tuple[Agent, MCPClient]:
+) -> "tuple[Agent, MCPClient | None]":
     """Create a Strands Agent backed by AgentCore Memory (STM) *and* Gateway
     MCP tactical tools, with a bounded conversation window.
 
@@ -102,19 +102,26 @@ def create_combined_agent(
                                                account, so the default cannot
                                                collide)
 
+    AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL is OPTIONAL: when unset, the agent is
+    built memory-only (no MCP tools) instead of raising.
+
     Returns:
-      (agent, mcp_client) — caller must use `with mcp_client:` context
-      manager when invoking the agent so Gateway tools remain available.
+      (agent, mcp_client) — mcp_client is an MCPClient when Gateway tools are
+      attached, or None when running memory-only. When it is not None the caller
+      must use `with mcp_client:` while invoking the agent so tools stay available.
     """
-    memory_id = os.environ.get("MEMORY_TEAM_MEMORY_ID")
+    # Accept either memory-flow env var:
+    #   MEMORY_TEAM_MEMORY_ID — injected by the CDK flow (python deploy_all.py)
+    #   MEMORY_ID             — injected by the legacy flow (./deploy-all.sh)
+    memory_id = os.environ.get("MEMORY_TEAM_MEMORY_ID") or os.environ.get("MEMORY_ID")
     team_id = os.environ.get("TEAM_ID", "default-team")
 
     if not memory_id:
         raise RuntimeError(
-            "MEMORY_TEAM_MEMORY_ID environment variable is required. "
-            "It is injected automatically when the agent is deployed via "
-            "`python deploy_all.py` with the team_memory resource declared "
-            "in agentcore/agentcore.json."
+            "A memory resource ID is required. Set MEMORY_TEAM_MEMORY_ID "
+            "(injected by `python deploy_all.py` via the team_memory resource in "
+            "agentcore/agentcore.json) or MEMORY_ID (injected by `./deploy-all.sh`, "
+            "created via create_memory.py)."
         )
 
     session_manager = AgentCoreMemorySessionManager(
@@ -137,12 +144,22 @@ def create_combined_agent(
         per_turn=True,
     )
 
-    mcp_client = MCPClient(_create_gateway_transport)
     model = BedrockModel(model_id=model_id)
 
-    # Fetch tool definitions inside the context so the connection is active.
-    with mcp_client:
-        tools = mcp_client.list_tools_sync()
+    # Gateway tactical tools are OPTIONAL. If AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL
+    # is set (CDK flow with the tactical-tools gateway deployed), attach the MCP
+    # tools. If it is NOT set (e.g. the legacy ./deploy-all.sh flow, which does not
+    # create a gateway), run memory-only: the agent still works via the LLM,
+    # AgentCore Memory, and the rule-based fallback — it just has no MCP tools.
+    gateway_url = os.environ.get("AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL")
+    if gateway_url:
+        mcp_client = MCPClient(_create_gateway_transport)
+        # Fetch tool definitions inside the context so the connection is active.
+        with mcp_client:
+            tools = mcp_client.list_tools_sync()
+    else:
+        mcp_client = None
+        tools = []
 
     agent = Agent(
         model=model,

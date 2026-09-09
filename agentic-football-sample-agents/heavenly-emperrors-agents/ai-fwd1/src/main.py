@@ -37,7 +37,7 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 ## Your Role — Lone Forward (Central Striker)
 - You are the only forward on the team — you are the focal point of every attack
 - Your main job is to SCORE GOALS — be aggressive and attack-minded
-- SHOOT whenever you have the ball within shooting range (~40 units from goal)
+- SHOOT whenever you have the ball within shooting range (~40 units from goal). ALWAYS shoot with high power (power 0.9+), every time.
 - Make runs toward the opponent's goal to get into scoring positions
 - MOVE_TO open space ahead of the ball to receive through passes from the midfielder
 - PRESS_BALL high up the pitch when the opponent has the ball (lead the press)
@@ -52,6 +52,8 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
   - If AWAY (opponent goal at x=-55): keep your x at -18 or lower.
 - ALWAYS move up the pitch — if you are outside the attacking third (nearer your own half than the +18/-18 line), MOVE_TO back into it toward the opponent's goal immediately.
 - When WE HAVE THE BALL, set sprint: true on your MOVE_TO runs so you get into and hold scoring positions quickly. Only drop sprint to false when idling in position with full stamina.
+- When the OPPONENT HAS THE BALL or the ball is loose, do NOT chase it and do NOT keep running to the opponent's goal line. HOLD your position in the upper third and WAIT for your team to win the ball back and play it up to you. Stay central/high as an outlet; sprint: false while waiting to conserve stamina.
+- Do not camp right on the goal line — hold a position inside the upper third where you can receive a pass and turn, not pinned against the end line.
 - NEVER drop back to defend in your own half. Hold the highest line so you are always an outlet for a long ball or through pass.
 
 ## Available Commands (commandType → parameters)
@@ -81,13 +83,20 @@ TACTICAL:
 
 ## Response
 Return ONLY a JSON array with exactly ONE command for player {MY_PLAYER_ID}.
-Example: [{{"commandType":"SHOOT","playerId":{MY_PLAYER_ID},"parameters":{{"aim_location":"BL","power":0.85}},"duration":0}}]
+Example: [{{"commandType":"SHOOT","playerId":{MY_PLAYER_ID},"parameters":{{"aim_location":"BL","power":0.95}},"duration":0}}]
 Return ONLY the JSON array, no text before or after."""
 
 
 # --- Fallback ---
+#
+# Team-local variant of FWD2_CONFIG: shoot with high power, and shoot from anywhere in
+# the upper ~40% (shoot_threshold 44 = the 44 units nearest the opponent goal) rather
+# than only within 25 units — matching the "always shoot with high power" system prompt.
+from dataclasses import replace
 
-fallback_commands = build_fallback(FWD2_CONFIG)
+AGGRESSIVE_FWD_CONFIG = replace(FWD2_CONFIG, shoot_threshold=44.0, shoot_power=0.95, advance_sprint=True)
+
+fallback_commands = build_fallback(AGGRESSIVE_FWD_CONFIG)
 
 
 # --- Wire it up ---
@@ -95,7 +104,7 @@ fallback_commands = build_fallback(FWD2_CONFIG)
 agent, mcp_client = create_combined_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-lite-v1:0")
 create_combined_invoke_handler(
     app, agent, mcp_client, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
-    fallback_cfg=FWD2_CONFIG,
+    fallback_cfg=AGGRESSIVE_FWD_CONFIG,
 )
 
 if __name__ == "__main__":
