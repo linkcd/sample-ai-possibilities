@@ -55,6 +55,21 @@ def test_fallback_with_ball_near_goal():
     print()
 
 
+def test_fallback_shoots_from_attacking_third_edge():
+    """MID at the near edge of the attacking third (x=20) should SHOOT with the
+    aggressive shoot_threshold=37 (the shared MID_CONFIG threshold of 25 would have PASSED)."""
+    print(f"=== FALLBACK SHOOT FROM ATTACKING-THIRD EDGE ({POSITION_LABEL}) ===")
+    state = json.loads(json.dumps(GAME_STATE))
+    state["ball"]["possessionAgentId"] = f"agentId_{MY_PLAYER_ID}"
+    state["players"][3]["position"] = {"x": 20, "y": 0}  # just inside the attacking third (HOME: x>=18)
+    cmds = fallback_commands(state, TEAM_ID, MY_PLAYER_ID)
+    for c in cmds:
+        print(f"  P{c['playerId']}: {c['commandType']} {c.get('parameters', {})}")
+    assert cmds[0]["commandType"] == "SHOOT", f"FAIL: expected SHOOT from attacking third, got {cmds[0]['commandType']}"
+    print(f"  Correctly shoots from the edge of the attacking third")
+    print()
+
+
 def test_fallback_with_ball_far():
     """MID has ball far from goal — should PASS to a forward."""
     print(f"=== FALLBACK WITH BALL FAR ({POSITION_LABEL}) ===")
@@ -100,6 +115,7 @@ if __name__ == "__main__":
     test_summarize()
     test_fallback()
     test_fallback_with_ball_near_goal()
+    test_fallback_shoots_from_attacking_third_edge()
     test_fallback_with_ball_far()
     test_parse()
     print("Combined memory+gateway agent local tests passed (no LLM/Memory/Gateway calls).")
