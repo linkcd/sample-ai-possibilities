@@ -69,6 +69,9 @@ def mock_agentcore_memory():
 
     strands_mod.AgentCoreMemorySessionManager = _FakeAgentCoreMemorySessionManager
     config_mod.AgentCoreMemoryConfig = _FakeAgentCoreMemoryConfig
+    # Agents import the session manager from the deeper session_manager submodule,
+    # so expose the stub there too (not just on the strands package module).
+    session_mod.AgentCoreMemorySessionManager = _FakeAgentCoreMemorySessionManager
 
     sys.modules["bedrock_agentcore.memory"] = mem_mod
     sys.modules["bedrock_agentcore.memory.integrations"] = integ_mod
