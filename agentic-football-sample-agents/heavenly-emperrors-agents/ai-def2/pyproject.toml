@@ -1,5 +1,5 @@
 [project]
-name = "ai_def2_memory_agent"
+name = "heavenly_def2_memory_agent"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
