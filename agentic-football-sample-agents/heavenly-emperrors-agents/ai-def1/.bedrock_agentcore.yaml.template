@@ -1,7 +1,7 @@
-default_agent: HE-def1-agent
+default_agent: HE_def1_agent
 agents:
-  HE-def1-agent:
-    name: HE-def1-agent
+  HE_def1_agent:
+    name: HE_def1_agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10

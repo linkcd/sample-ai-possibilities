@@ -40,7 +40,13 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.agent.conversation_manager import SlidingWindowConversationManager
 from strands.tools.mcp.mcp_client import MCPClient
-from mcp.client.streamable_http import streamablehttp_client
+# The Streamable HTTP transport factory was renamed across mcp versions:
+# older releases expose `streamablehttp_client`, newer ones `streamable_http_client`.
+# Import whichever exists so this works regardless of the installed mcp version.
+try:
+    from mcp.client.streamable_http import streamablehttp_client
+except ImportError:  # pragma: no cover - depends on installed mcp version
+    from mcp.client.streamable_http import streamable_http_client as streamablehttp_client
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 

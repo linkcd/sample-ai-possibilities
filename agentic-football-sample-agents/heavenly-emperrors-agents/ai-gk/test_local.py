@@ -1,4 +1,4 @@
-"""Local test for the GK (Memory + Gateway) agent — tests state summary, parsing, and fallback."""
+"""Local test for the GK (Memory + Gateway, Solid Defensive) agent — tests state summary, parsing, and fallback."""
 
 import json
 import sys
@@ -41,7 +41,7 @@ def test_fallback():
 
 
 def test_fallback_with_ball():
-    """Test fallback when GK has the ball — should GK_DISTRIBUTE."""
+    """When the GK has the ball, distribute to whichever of MID (3) / FWD (4) is furthest up."""
     print(f"=== FALLBACK WITH BALL ({POSITION_LABEL}) ===")
     state = json.loads(json.dumps(GAME_STATE))
     state["ball"]["possessionAgentId"] = f"agentId_{MY_PLAYER_ID}"
@@ -49,7 +49,43 @@ def test_fallback_with_ball():
     for c in cmds:
         print(f"  P{c['playerId']}: {c['commandType']} {c.get('parameters', {})}")
     assert cmds[0]["commandType"] == "GK_DISTRIBUTE", f"FAIL: expected GK_DISTRIBUTE, got {cmds[0]['commandType']}"
-    print(f"  Correctly distributes ball via {cmds[0]['parameters'].get('method')}")
+    # Sample state: P3 at x=14, P4 at x=20 (HOME attacks +x), so the forward (4) is furthest up.
+    target = cmds[0]["parameters"]["target_player_id"]
+    assert target == 4, f"FAIL: expected distribute to furthest-up player 4, got {target}"
+    print(f"  Correctly distributes to furthest-up player {target} via {cmds[0]['parameters'].get('method')}")
+    print()
+
+
+def test_fallback_with_ball_mid_furthest():
+    """If the midfielder is furthest up, distribution should target the midfielder (3)."""
+    print(f"=== FALLBACK WITH BALL — MID FURTHEST ({POSITION_LABEL}) ===")
+    state = json.loads(json.dumps(GAME_STATE))
+    state["ball"]["possessionAgentId"] = f"agentId_{MY_PLAYER_ID}"
+    state["players"][3]["position"] = {"x": 45, "y": 0}   # MID (id 3) pushed high
+    state["players"][4]["position"] = {"x": 5, "y": 10}   # FWD (id 4) dropped deep
+    cmds = fallback_commands(state, TEAM_ID, MY_PLAYER_ID)
+    for c in cmds:
+        print(f"  P{c['playerId']}: {c['commandType']} {c.get('parameters', {})}")
+    target = cmds[0]["parameters"]["target_player_id"]
+    assert target == 3, f"FAIL: expected distribute to furthest-up player 3, got {target}"
+    print(f"  Correctly distributes to furthest-up player {target}")
+    print()
+
+
+def test_fallback_positioning():
+    """When an opponent has the ball, the keeper holds a deep line near its own goal."""
+    print(f"=== FALLBACK POSITIONING ({POSITION_LABEL}) ===")
+    state = json.loads(json.dumps(GAME_STATE))
+    state["ball"]["possessionAgentId"] = "agentId_6"  # an opponent has the ball
+    cmds = fallback_commands(state, TEAM_ID, MY_PLAYER_ID)
+    for c in cmds:
+        print(f"  P{c['playerId']}: {c['commandType']} {c.get('parameters', {})}")
+    assert cmds[0]["commandType"] == "MOVE_TO", f"FAIL: expected MOVE_TO, got {cmds[0]['commandType']}"
+    # HOME goal is at x=-55; the keeper should stay deep (well into its own half).
+    assert cmds[0]["parameters"]["target_x"] < -40, \
+        f"FAIL: keeper should hold a deep line, got target_x={cmds[0]['parameters']['target_x']}"
+    assert cmds[0]["parameters"]["sprint"] is False, "FAIL: keeper should not sprint to hold position"
+    print(f"  Correctly holds a deep line at x={cmds[0]['parameters']['target_x']}")
     print()
 
 
@@ -81,6 +117,8 @@ if __name__ == "__main__":
     test_summarize()
     test_fallback()
     test_fallback_with_ball()
+    test_fallback_with_ball_mid_furthest()
+    test_fallback_positioning()
     test_parse()
     print("Combined memory+gateway agent local tests passed (no LLM/Memory/Gateway calls).")
     print("Deploy to AgentCore to test with actual Memory + tactical tools integration.")

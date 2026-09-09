@@ -49,11 +49,11 @@ FAILED=()
 # Agent dir name → runtime name
 get_runtime_name() {
   case "$1" in
-    ai-gk)   echo "HE-gk-agent" ;;
-    ai-def1) echo "HE-def1-agent" ;;
-    ai-mid)  echo "HE-mid-agent" ;;
-    ai-def2) echo "HE-def2-agent" ;;
-    ai-fwd1) echo "HE-fwd1-agent" ;;
+    ai-gk)   echo "HE_gk_agent" ;;
+    ai-def1) echo "HE_def1_agent" ;;
+    ai-mid)  echo "HE_mid_agent" ;;
+    ai-def2) echo "HE_def2_agent" ;;
+    ai-fwd1) echo "HE_fwd1_agent" ;;
     *) echo "" ;;
   esac
 }
