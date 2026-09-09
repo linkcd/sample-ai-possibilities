@@ -1,7 +1,7 @@
-default_agent: ai_fwd1_memory_agent
+default_agent: HE-fwd1-agent
 agents:
-  ai_fwd1_memory_agent:
-    name: ai_fwd1_memory_agent
+  HE-fwd1-agent:
+    name: HE-fwd1-agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10

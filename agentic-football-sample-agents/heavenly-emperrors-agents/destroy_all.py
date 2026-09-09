@@ -25,11 +25,11 @@ ALL_AGENTS = ["ai-gk", "ai-def1", "ai-mid", "ai-def2", "ai-fwd1"]
 agents = [sys.argv[1]] if len(sys.argv) > 1 else ALL_AGENTS
 
 AGENT_NAMES = {
-    "ai-gk":   "ai_gk_memory_agent",
-    "ai-def1": "ai_def1_memory_agent",
-    "ai-mid":  "ai_mid_memory_agent",
-    "ai-def2": "ai_def2_memory_agent",
-    "ai-fwd1": "ai_fwd1_memory_agent",
+    "ai-gk":   "HE-gk-agent",
+    "ai-def1": "HE-def1-agent",
+    "ai-mid":  "HE-mid-agent",
+    "ai-def2": "HE-def2-agent",
+    "ai-fwd1": "HE-fwd1-agent",
 }
 
 

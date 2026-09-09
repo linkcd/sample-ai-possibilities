@@ -1,7 +1,7 @@
-default_agent: ai_gk_memory_agent
+default_agent: HE-gk-agent
 agents:
-  ai_gk_memory_agent:
-    name: ai_gk_memory_agent
+  HE-gk-agent:
+    name: HE-gk-agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10

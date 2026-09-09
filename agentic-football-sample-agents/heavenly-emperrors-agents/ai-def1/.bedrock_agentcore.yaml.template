@@ -1,7 +1,7 @@
-default_agent: ai_def1_memory_agent
+default_agent: HE-def1-agent
 agents:
-  ai_def1_memory_agent:
-    name: ai_def1_memory_agent
+  HE-def1-agent:
+    name: HE-def1-agent
     entrypoint: src/main.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10
