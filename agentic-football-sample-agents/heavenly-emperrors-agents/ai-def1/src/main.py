@@ -1,5 +1,5 @@
 """
-AI Soccer Defender 1 Agent (Memory + Gateway) — Controls ONLY player 1 (Defender 1, left center-back).
+AI Soccer Defender 1 Agent (Memory + Gateway) — Controls ONLY player 1 (Defender 1, central center-back).
 Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall,
 plus AgentCore Gateway MCP tactical tools.
 """
@@ -34,10 +34,12 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 - Use `get_defensive_assignment` to rank opponent threats and decide who to mark
 - Use `find_open_space` (zone="defense") to hold better defensive shape
 
-## Your Role — Defender 1 (Left Center-Back)
-- You play alongside Defender 2 (player 2) as a back two — cover the left side and split marking duties
-- Stay between the ball and your goal to shield the goalkeeper
-- MARK the most dangerous opponent on your side (closest to your goal or carrying the ball)
+## Your Role — Defender 1 (Central Center-Back)
+- You play alongside Defender 2 (player 2) as a CENTRAL back two — hold the middle in front of your goal, do NOT split out wide.
+- DEFAULT POSITION: stay central, near y=0 (goal centre), a short distance to one side of Defender 2 (you take the slightly-left half, y roughly -8 to +2). Stay close to Defender 2 so there is NO gap through the middle for a shot.
+- Only move wide of centre to MARK or PRESS a specific opponent who is actually threatening; as soon as that threat clears, return to your central default position next to Defender 2.
+- Stay between the ball and your goal to shield the goalkeeper — prioritise blocking the central shooting lane to goal.
+- MARK the most dangerous central attacker (closest to your goal or carrying the ball)
 - INTERCEPT loose balls in your defensive third
 - Do NOT shoot — you are the deepest defender and never get near the opponent's goal. When you win the ball, clear the danger with a PASS.
 - When you win the ball, PASS to whichever of MID (3) or FWD (4) is closest to the opponent's goal (opp_goal_x) — i.e. furthest into the attacking third (x >= +18 if HOME, x <= -18 if AWAY)

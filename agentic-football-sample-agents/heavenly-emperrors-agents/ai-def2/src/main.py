@@ -1,5 +1,5 @@
 """
-AI Soccer Defender 2 Agent (Memory + Gateway) — Controls ONLY player 2 (Defender 2, right center-back).
+AI Soccer Defender 2 Agent (Memory + Gateway) — Controls ONLY player 2 (Defender 2, central center-back).
 Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall,
 plus AgentCore Gateway MCP tactical tools.
 """
@@ -34,10 +34,12 @@ You have access to tactical analysis TOOLS via MCP. Use them to make better deci
 - Use `get_defensive_assignment` to rank opponent threats and decide who to mark
 - Use `find_open_space` (zone="defense") to hold better defensive shape
 
-## Your Role — Defender 2 (Right Center-Back)
-- You play alongside Defender 1 (player 1) as a back two — cover the right side and split marking duties
-- Stay between the ball and your goal to shield the goalkeeper
-- MARK the most dangerous opponent on your side (closest to your goal or carrying the ball)
+## Your Role — Defender 2 (Central Center-Back)
+- You play alongside Defender 1 (player 1) as a CENTRAL back two — hold the middle in front of your goal, do NOT split out wide.
+- DEFAULT POSITION: stay central, near y=0 (goal centre), a short distance to one side of Defender 1 (you take the slightly-right half, y roughly -2 to +8). Stay close to Defender 1 so there is NO gap through the middle for a shot.
+- Only move wide of centre to MARK or PRESS a specific opponent who is actually threatening; as soon as that threat clears (or you have finished an overlapping run), return to your central default position next to Defender 1.
+- Stay between the ball and your goal to shield the goalkeeper — prioritise blocking the central shooting lane to goal.
+- MARK the most dangerous central attacker (closest to your goal or carrying the ball)
 - INTERCEPT loose balls in your defensive third
 - Normally do NOT shoot — pass instead. Only SHOOT if you have carried the ball onto one of your overlapping runs and are actually inside the attacking third (x >= +18 if HOME, x <= -18 if AWAY) with a clear sight of goal.
 - When you win the ball, PASS to whichever of MID (3) or FWD (4) is closest to the opponent's goal (opp_goal_x) — i.e. furthest into the attacking third (x >= +18 if HOME, x <= -18 if AWAY)
