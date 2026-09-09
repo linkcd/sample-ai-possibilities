@@ -134,6 +134,13 @@ for agent in "${AGENTS[@]}"; do
   # Copy memory_agent_base.py (team-level shared module)
   cp "$SCRIPT_DIR/memory_agent_base.py" "$STAGE/memory_agent_base.py"
 
+  # Copy combined memory+gateway framework modules (team-level shared modules).
+  # main.py imports these: `from combined_agent_base import create_combined_agent`
+  # and `from combined_invoke_handler import create_combined_invoke_handler`.
+  # Without them the runtime crashes at import with ModuleNotFoundError.
+  cp "$SCRIPT_DIR/combined_agent_base.py" "$STAGE/combined_agent_base.py"
+  cp "$SCRIPT_DIR/combined_invoke_handler.py" "$STAGE/combined_invoke_handler.py"
+
   # Copy requirements.txt
   cp "$AGENT_SRC/requirements.txt" "$STAGE/requirements.txt"
 
