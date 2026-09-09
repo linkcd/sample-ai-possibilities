@@ -1,17 +1,18 @@
 """
-AI Soccer Forward Agent (Memory) — Controls ONLY player 4 (the lone Forward / striker).
-Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall.
+AI Soccer Forward Agent (Memory + Gateway) — Controls ONLY player 4 (the lone Forward / striker).
+Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall,
+plus AgentCore Gateway MCP tactical tools.
 """
 
 import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib")); sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 from _bootstrap import setup_lib_path; setup_lib_path(__file__)
 
-# memory_agent_base lives one level above src/
+# combined_agent_base lives one level above src/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from memory_agent_base import create_memory_agent
-from agent_base import create_invoke_handler
+from combined_agent_base import create_combined_agent
+from combined_invoke_handler import create_combined_invoke_handler
 from fallback import build_fallback, FWD2_CONFIG
 
 app = BedrockAgentCoreApp()
@@ -28,6 +29,10 @@ You have MEMORY of previous ticks. Use recalled history to:
 - Remember which shot placements have beaten this goalkeeper and which they save
 - Recall how the opposing defenders position so you can time runs in behind them
 - Remember where the midfielder tends to play passes so you can anticipate service
+
+You have access to tactical analysis TOOLS via MCP. Use them to make better decisions:
+- Use `evaluate_shot` before shooting to check success probability and get an aim recommendation
+- Use `find_open_space` (zone="attack") to find the best run to make to receive a pass
 
 ## Your Role — Lone Forward (Central Striker)
 - You are the only forward on the team — you are the focal point of every attack
@@ -79,9 +84,9 @@ fallback_commands = build_fallback(FWD2_CONFIG)
 
 # --- Wire it up ---
 
-agent = create_memory_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-lite-v1:0")
-create_invoke_handler(
-    app, agent, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
+agent, mcp_client = create_combined_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-lite-v1:0")
+create_combined_invoke_handler(
+    app, agent, mcp_client, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
     fallback_cfg=FWD2_CONFIG,
 )
 

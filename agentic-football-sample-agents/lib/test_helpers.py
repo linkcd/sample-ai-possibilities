@@ -106,24 +106,57 @@ def mock_agentcore_gateway():
     """
     mock_agentcore()
 
-    # Mock MCP client modules
-    mcp_mod = type(sys)("mcp")
-    mcp_client_mod = type(sys)("mcp.client")
-    mcp_http_mod = type(sys)("mcp.client.streamable_http")
-    mcp_http_mod.streamablehttp_client = lambda *a, **kw: None
+    # Mock MCP client modules — only if the real `mcp` package is not
+    # installed. If it IS installed, leave it alone (strands.tools.mcp may
+    # import from it for real) and just avoid making network calls by
+    # monkeypatching the real transport factory further down.
+    try:
+        import mcp.client.streamable_http as _real_mcp_http_mod
+        _real_transport_patched = True
+    except ImportError:
+        _real_transport_patched = False
+        mcp_mod = type(sys)("mcp")
+        mcp_client_mod = type(sys)("mcp.client")
+        mcp_http_mod = type(sys)("mcp.client.streamable_http")
+        mcp_http_mod.streamablehttp_client = lambda *a, **kw: None
 
-    sys.modules["mcp"] = mcp_mod
-    sys.modules["mcp.client"] = mcp_client_mod
-    sys.modules["mcp.client.streamable_http"] = mcp_http_mod
+        sys.modules["mcp"] = mcp_mod
+        sys.modules["mcp.client"] = mcp_client_mod
+        sys.modules["mcp.client.streamable_http"] = mcp_http_mod
 
-    # Mock strands MCP tools
-    strands_tools_mod = type(sys)("strands.tools.mcp")
-    strands_mcp_client_mod = type(sys)("strands.tools.mcp.mcp_client")
-    strands_mcp_client_mod.MCPClient = _FakeMCPClient
+    # Mock strands MCP tools. Only stub strands.tools / strands.tools.mcp as
+    # packages if strands itself is not actually installed — if the real
+    # strands package IS installed (e.g. in a venv with strands-agents),
+    # replacing its real strands.tools package breaks strands' own internal
+    # imports (strands.tools.decorator etc.), since Python cannot tell our
+    # stub apart from a real subpackage once it's registered in sys.modules.
+    # In that case we only monkeypatch the leaf mcp_client module, and only
+    # after strands.tools.mcp has been imported for real.
+    try:
+        import strands.tools.mcp.mcp_client as _real_mcp_client_mod
+        _real_mcp_client_mod.MCPClient = _FakeMCPClient
+    except ImportError:
+        strands_tools_mod = type(sys)("strands.tools.mcp")
+        strands_mcp_client_mod = type(sys)("strands.tools.mcp.mcp_client")
+        strands_mcp_client_mod.MCPClient = _FakeMCPClient
 
-    sys.modules.setdefault("strands.tools", type(sys)("strands.tools"))
-    sys.modules["strands.tools.mcp"] = strands_tools_mod
-    sys.modules["strands.tools.mcp.mcp_client"] = strands_mcp_client_mod
+        sys.modules.setdefault("strands.tools", type(sys)("strands.tools"))
+        sys.modules["strands.tools.mcp"] = strands_tools_mod
+        sys.modules["strands.tools.mcp.mcp_client"] = strands_mcp_client_mod
+
+
+def mock_agentcore_combined():
+    """Inject fake bedrock_agentcore + memory + MCP modules for combined
+    memory+gateway agents.
+
+    Call this INSTEAD of mock_agentcore()/mock_agentcore_memory()/
+    mock_agentcore_gateway() when testing combined agents (created via
+    create_combined_agent). Equivalent to calling both mock_agentcore_memory()
+    and mock_agentcore_gateway() — provided as a single entry point so
+    combined agents' test_local.py files only need one mock call.
+    """
+    mock_agentcore_memory()
+    mock_agentcore_gateway()
 
 
 # ---------------------------------------------------------------------------

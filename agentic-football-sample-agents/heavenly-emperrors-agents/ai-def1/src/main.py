@@ -1,17 +1,18 @@
 """
-AI Soccer Defender 1 Agent (Memory) — Controls ONLY player 1 (Defender 1, left center-back).
-Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall.
+AI Soccer Defender 1 Agent (Memory + Gateway) — Controls ONLY player 1 (Defender 1, left center-back).
+Uses Strands SDK + Amazon Nova Lite + AgentCore Memory for cross-tick recall,
+plus AgentCore Gateway MCP tactical tools.
 """
 
 import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib")); sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 from _bootstrap import setup_lib_path; setup_lib_path(__file__)
 
-# memory_agent_base lives one level above src/
+# combined_agent_base lives one level above src/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from memory_agent_base import create_memory_agent
-from agent_base import create_invoke_handler
+from combined_agent_base import create_combined_agent
+from combined_invoke_handler import create_combined_invoke_handler
 from fallback import build_fallback, DEF_CONFIG
 
 app = BedrockAgentCoreApp()
@@ -28,6 +29,10 @@ You have MEMORY of previous ticks. Use recalled history to:
 - Remember which opponent attackers are most dangerous and where they like to receive the ball
 - Recall which attacker you and Defender 2 each picked up so you don't both chase the same runner
 - Adjust your marking and line height based on how earlier attacks developed
+
+You have access to tactical analysis TOOLS via MCP. Use them to make better decisions:
+- Use `get_defensive_assignment` to rank opponent threats and decide who to mark
+- Use `find_open_space` (zone="defense") to hold better defensive shape
 
 ## Your Role — Defender 1 (Left Center-Back)
 - You play alongside Defender 2 (player 2) as a back two — cover the left side and split marking duties
@@ -79,9 +84,9 @@ fallback_commands = build_fallback(DEF_CONFIG)
 
 # --- Wire it up ---
 
-agent = create_memory_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-lite-v1:0")
-create_invoke_handler(
-    app, agent, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
+agent, mcp_client = create_combined_agent(SYSTEM_PROMPT, MY_PLAYER_ID, POSITION_LABEL, model_id="us.amazon.nova-lite-v1:0")
+create_combined_invoke_handler(
+    app, agent, mcp_client, MY_PLAYER_ID, POSITION_LABEL, fallback_commands,
     fallback_cfg=DEF_CONFIG,
 )
 

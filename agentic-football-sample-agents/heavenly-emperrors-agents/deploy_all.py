@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Deploy all 5 AI Team (Memory) agents to Bedrock AgentCore.
+Deploy all 5 AI Team (Memory + Gateway) agents to Bedrock AgentCore.
 
 Usage:
     python deploy_all.py
@@ -8,10 +8,14 @@ Usage:
 Works on macOS, Linux, and Windows (PowerShell) without WSL.
 
 The AgentCore Memory resource is declared in agentcore/agentcore.json
-("team_memory") and is created by `agentcore deploy` along with the agents.
-The CDK stack grants each runtime access and injects the resource ID as the
-MEMORY_TEAM_MEMORY_ID environment variable — no create-memory step and no
-MEMORY_ID export are needed.
+("team_memory") and the AgentCore Gateway with its four Lambda tactical
+tools is declared under "tactical-tools" (built from gateway_tools/). Both
+are created by `agentcore deploy` along with the agents. The CDK stack
+grants each runtime access and injects:
+  - the memory resource ID as MEMORY_TEAM_MEMORY_ID
+  - the gateway endpoint as AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL
+No create-memory step, no gateway/Lambda packaging step, and no manual
+env var exports are needed.
 
 Prerequisites:
     npm install -g @aws/agentcore aws-cdk
@@ -35,10 +39,12 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 LIB_SRC = SCRIPT_DIR.parent / "lib"
-# CDK-flow variant of the memory base module, staged into each agent dir
-# under the name src/main.py imports (memory_agent_base).
-MEMORY_BASE_SRC = SCRIPT_DIR / "memory_agent_base_cdk.py"
-MEMORY_BASE_NAME = "memory_agent_base.py"
+# Combined memory+gateway agent factory and invoke handler, staged into each
+# agent dir under the names src/main.py imports.
+COMBINED_BASE_SRC = SCRIPT_DIR / "combined_agent_base.py"
+COMBINED_BASE_NAME = "combined_agent_base.py"
+INVOKE_HANDLER_SRC = SCRIPT_DIR / "combined_invoke_handler.py"
+INVOKE_HANDLER_NAME = "combined_invoke_handler.py"
 ALL_AGENTS = ["ai-gk", "ai-def1", "ai-mid", "ai-def2", "ai-fwd1"]
 agents = ALL_AGENTS
 
@@ -60,9 +66,10 @@ def cleanup():
         lib_copy = agent_dir / "lib"
         if lib_copy.exists():
             rmtree(lib_copy)
-        base_copy = agent_dir / MEMORY_BASE_NAME
-        if base_copy.exists():
-            base_copy.unlink()
+        for name in (COMBINED_BASE_NAME, INVOKE_HANDLER_NAME):
+            copy = agent_dir / name
+            if copy.exists():
+                copy.unlink()
     if _injected:
         print("\nCleaned up injected files from agent directories.")
 
@@ -146,7 +153,7 @@ def aws_cli(*args):
 # ── Pre-flight ────────────────────────────────────────────────────────────────
 
 print("==========================================")
-print("  AI Team (Memory) — Deploy Agents")
+print("  AI Team (Memory + Gateway) — Deploy Agents")
 print("==========================================\n")
 print("Checking prerequisites...")
 
@@ -218,7 +225,8 @@ try:
             lib_dest,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
         )
-        shutil.copy2(MEMORY_BASE_SRC, agent_dir / MEMORY_BASE_NAME)
+        shutil.copy2(COMBINED_BASE_SRC, agent_dir / COMBINED_BASE_NAME)
+        shutil.copy2(INVOKE_HANDLER_SRC, agent_dir / INVOKE_HANDLER_NAME)
 
         _injected.append(agent_dir)
         print(f"  Ready: {agent_dir}")
@@ -258,5 +266,6 @@ print(f"  Agents:   {', '.join(agents)}")
 print(f"  Account:  {account_id}")
 print(f"  Region:   {region}")
 print("  Memory:   team_memory (created by the stack; ID injected as MEMORY_TEAM_MEMORY_ID)")
+print("  Gateway:  tactical-tools + 4 Lambda tools (created by the stack; URL injected as AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL)")
 print()
 print("All agents deployed successfully.")

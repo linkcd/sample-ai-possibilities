@@ -1,4 +1,4 @@
-"""Local test for the lone FWD (Memory) agent (player 4) — tests state summary, parsing, and fallback."""
+"""Local test for the lone FWD (Memory + Gateway) agent (player 4) — tests state summary, parsing, and fallback."""
 
 import json
 import sys
@@ -8,10 +8,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from test_helpers import mock_agentcore_memory, GAME_STATE, TEAM_ID
-os.environ.setdefault("MEMORY_ID", "test-memory-id")
+from test_helpers import mock_agentcore_combined, GAME_STATE, TEAM_ID
+os.environ.setdefault("MEMORY_TEAM_MEMORY_ID", "test-memory-id")
+os.environ.setdefault("AGENTCORE_GATEWAY_TACTICAL_TOOLS_URL", "https://test-gateway.example.com")
 os.environ.setdefault("TEAM_ID", str(TEAM_ID))
-mock_agentcore_memory()
+mock_agentcore_combined()
 
 from state import summarize_state
 from parsing import parse_commands
@@ -100,5 +101,5 @@ if __name__ == "__main__":
     test_fallback_shoot()
     test_fallback_advance()
     test_parse()
-    print("Memory agent local tests passed (no LLM/Memory calls).")
-    print("Deploy to AgentCore to test with actual Memory integration.")
+    print("Combined memory+gateway agent local tests passed (no LLM/Memory/Gateway calls).")
+    print("Deploy to AgentCore to test with actual Memory + tactical tools integration.")
