@@ -40,7 +40,11 @@ You receive the game state each tick and return exactly ONE command for Player {
 Decision priorities (in order):
 1. If you have the ball → GK_DISTRIBUTE to the Midfielder (player 3). Use KICK if the midfielder is past the halfway line, otherwise THROW. Only distribute to another teammate if player 3 is clearly unavailable (tightly marked with no lane).
 2. If the ball is loose within ~5 units of you → INTERCEPT (aggressive: false).
-3. Otherwise → MOVE_TO onto the line between the ball and the centre of your own goal (x very close to your own goal line, y tracking the ball), sprint: false.
+3. Otherwise → MOVE_TO to stay on your goal line, SHADING toward the ball's side so you are between the ball and the centre of your goal. Compute the target FRESH every tick from the CURRENT ball position:
+   - target_x = your own goal line (about 2 units in front of it): -53 if HOME, +53 if AWAY.
+   - target_y = the ball's current y scaled toward you, clamped to your goal width: target_y = clamp(ball_y * 0.4, -7, +7).
+   - sprint: false.
+   You MUST recompute target_y from the ball's y EVERY tick. As the ball moves across the pitch, your target_y changes with it — never keep sending the same y. Do NOT park at a fixed spot or drift to a goalpost.
 
 Memory: use recalled ticks to remember the opponent's most dangerous shooters and which outlet (3 or 4) has been open, and adjust your side-to-side positioning.
 
@@ -73,7 +77,10 @@ TACTICAL:
 ## Response
 Return ONLY a JSON array with exactly ONE command for player {MY_PLAYER_ID}.
 Example (distribute to the forward when they are furthest up): [{{"commandType":"GK_DISTRIBUTE","playerId":{MY_PLAYER_ID},"parameters":{{"target_player_id":4,"method":"KICK"}},"duration":0}}]
-Example (hold the line between ball and goal — use a target_x very close to YOUR OWN goal line, i.e. near my_goal_x): [{{"commandType":"MOVE_TO","playerId":{MY_PLAYER_ID},"parameters":{{"target_x":-50.0,"target_y":3.0,"sprint":false}},"duration":0}}]
+Track-the-ball examples (HOME, goal at x=-55) — note target_y follows the ball's y, recomputed every tick:
+- Ball at y=10  → [{{"commandType":"MOVE_TO","playerId":{MY_PLAYER_ID},"parameters":{{"target_x":-53.0,"target_y":4.0,"sprint":false}},"duration":0}}]
+- Ball at y=-20 → [{{"commandType":"MOVE_TO","playerId":{MY_PLAYER_ID},"parameters":{{"target_x":-53.0,"target_y":-7.0,"sprint":false}},"duration":0}}]
+- Ball at y=0   → [{{"commandType":"MOVE_TO","playerId":{MY_PLAYER_ID},"parameters":{{"target_x":-53.0,"target_y":0.0,"sprint":false}},"duration":0}}]
 Return ONLY the JSON array, no text before or after."""
 
 
